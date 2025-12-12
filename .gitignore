@@ -24,7 +24,7 @@ ENV/
 .ipynb_checkpoints/
 
 # Data files (too large for git)
-data/
+/data/
 *.parquet
 *.wav
 *.mp3
