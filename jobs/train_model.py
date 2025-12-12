@@ -12,14 +12,17 @@ from omegaconf import DictConfig
 from asr_qe.data import load_features, prepare_data
 from asr_qe.models.trainer import XGBoostTrainer
 from asr_qe.utils import setup_logging
-from asr_qe.config import TrainingConfig, XGBoostConfig
+from asr_qe.config import Config, register_configs
 
 setup_logging()
 logger = logging.getLogger(__name__)
 
+# Register structured configs
+register_configs()
+
 
 @hydra.main(version_base=None, config_path="../conf", config_name="config")
-def main(cfg: DictConfig) -> int:
+def main(cfg: Config) -> int:
     logger.info("Starting model training job")
     logger.info(f"Input: {cfg.data.input_path}")
     logger.info(f"Output: {cfg.model.output_dir}")
@@ -27,31 +30,20 @@ def main(cfg: DictConfig) -> int:
     # Load data
     df = load_features(cfg.data.input_path)
     
-    # Build configs from Hydra
-    training_config = TrainingConfig(
-        min_samples=cfg.training.min_samples,
-        min_spearman_rho=cfg.training.min_spearman_rho,
-        model_dir=cfg.model.output_dir,
-        feature_columns=tuple(cfg.training.feature_columns),
-        target_column=cfg.training.target_column,
-        test_size=cfg.training.test_size,
-    )
-    
-    xgboost_config = XGBoostConfig(
-        n_estimators=cfg.training.n_estimators,
-        max_depth=cfg.training.max_depth,
-        learning_rate=cfg.training.learning_rate,
-    )
-    
     # Prepare data
     X, y = prepare_data(
         df, 
-        feature_columns=training_config.feature_columns, 
-        target_column=training_config.target_column,
+        feature_columns=cfg.training.feature_columns, 
+        target_column=cfg.training.target_column,
     )
     
     # Train model
-    trainer = XGBoostTrainer(training_config, xgboost_config)
+    # cfg.training and cfg.training.xgboost are already typed objects populated by Hydra
+    trainer = XGBoostTrainer(
+        training_config=cfg.training,
+        xgboost_config=cfg.training.xgboost,
+        output_dir=cfg.model.output_dir
+    )
     result = trainer.train(X, y)
     
     logger.info("Training successful!")

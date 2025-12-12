@@ -1,34 +1,57 @@
 # Stage 1: Builder
-FROM python:3.12-slim AS builder
+FROM python:3.12-slim-bookworm AS builder
+
+# Copy uv binary
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y gcc python3-dev && rm -rf /var/lib/apt/lists/*
+# Install build dependencies (needed for some python packages that might compile extensions)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libsndfile1-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-COPY pyproject.toml .
+# Install dependencies FIRST (caching layer)
+COPY pyproject.toml uv.lock ./
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --extra api --locked --no-install-project --no-editable --compile-bytecode
+
+# Install the project
 COPY src/ src/
-
-# Build wheels for api dependencies
-RUN pip wheel .[api] --wheel-dir /wheels
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --extra api --locked --no-editable --compile-bytecode
 
 # Stage 2: Runtime
-FROM python:3.12-slim
+FROM python:3.12-slim-bookworm
 
 WORKDIR /app
 
-# Install system deps
-RUN apt-get update && apt-get install -y \
+# Install runtime system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
     libsndfile1 \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy wheels
-COPY --from=builder /wheels /wheels
+# Copy the environment from builder
+COPY --from=builder /app/.venv /app/.venv
 
-# Install
-RUN pip install --no-cache-dir --no-index --find-links=/wheels asr_qe[api]
+# Add venv to PATH
+ENV PATH="/app/.venv/bin:$PATH"
 
-# Expose port
+# Copy application code and config
+COPY serving/ serving/
+COPY conf/ conf/
+
+# Environment Variables
+ENV LOG_LEVEL=INFO
+ENV ASR_QE_MODEL_PATH=/models/model.joblib
+
+# Expose the port
 EXPOSE 8000
 
-# Run
-CMD ["uvicorn", "asr_qe.serving.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Healthcheck
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/')" || exit 1
+
+# Run the application
+CMD ["/app/.venv/bin/uvicorn", "serving.main:app", "--host", "0.0.0.0", "--port", "8000"]

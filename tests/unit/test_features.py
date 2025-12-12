@@ -24,12 +24,6 @@ def test_compute_rms(extractor, config):
     
     # 1. Empty Audio
     empty_audio = np.array([])
-    # Note: np.mean([]) is NaN. Let's see how the implementation handles it. 
-    # Current implementation: rms = np.sqrt(np.mean(audio**2)) -> sqrt(NaN) -> NaN
-    # We might need to fix implementation for empty array if we want robust unit tests.
-    # Refactoring implementation in previous step didn't explicitly handle empty array inside _compute_rms 
-    # (it was handled in extract). But unit test should test the method.
-    # Let's assume for now we test valid inputs or we fix implementation if it fails.
     
     # 2. Silent Audio
     silent_audio = np.zeros(sr)
@@ -41,6 +35,11 @@ def test_compute_rms(extractor, config):
     sine_audio = 0.5 * np.sin(2 * np.pi * 440 * t)
     
     cases = [
+        {
+            "name": "Empty Audio",
+            "audio": empty_audio,
+            "expected": config.silence_db
+        },
         {
             "name": "Silent Audio",
             "audio": silent_audio,
@@ -70,13 +69,7 @@ def test_compute_snr(extractor, config):
     short_audio = np.ones(100)
     
     # 2. Pure Tone (High SNR)
-    # 1 sec tone. Constant energy. Sorted energy is flat. 
-    # Noise (bottom 10%) == Signal (top 90%). SNR ~ 0 dB.
-    # Wait, my previous test assumption "Pure Sine > 20dB" passed?
-    # Ah, I added silence padding in previous "Pure Sine" test to create contrast!
-    # A purely constant sine wave has NO variation, so NO "noise floor" distinct from "signal".
-    # So for correct SNR testing, we continue to need contrast.
-    
+
     silence_pad = np.zeros(int(0.1 * sr))
     tone = 0.5 * np.sin(2 * np.pi * 440 * np.linspace(0, 0.8, int(0.8 * sr)))
     contrasted_sine = np.concatenate([silence_pad, tone, silence_pad])
@@ -86,6 +79,11 @@ def test_compute_snr(extractor, config):
     white_noise = rng.normal(0, 0.1, sr)
     
     cases = [
+        {
+            "name": "Empty Audio",
+            "audio": np.array([]),
+            "expected": 0.0
+        },
         {
             "name": "Short Audio",
             "audio": short_audio,

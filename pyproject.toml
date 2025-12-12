@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "asr_qe"
 version = "0.1.0"
 description = "ASR Quality Estimation System"
-requires-python = ">=3.12"
+requires-python = ">=3.10"
 dependencies = [
     "pydantic",
     "numpy<2.0",
@@ -22,11 +22,17 @@ dependencies = [
     "transformers",
     "jiwer",
     "tqdm",
-    "nemo_toolkit[asr]",
-    "cuda-python>=12.3",  # For NeMo CUDA graph optimization
+    # "nemo_toolkit[asr]", -- Moved to optional to speed up build
+    # "cuda-python>=12.3",
+    "prometheus-fastapi-instrumentator>=7.1.0",
+    "prometheus-client>=0.23.1",
 ]
 
 [project.optional-dependencies]
+research = [
+    "nemo_toolkit[asr]",
+    "cuda-python>=12.3",
+]
 dev = [
     "pytest",
     "ruff",
@@ -40,6 +46,8 @@ api = [
     "fastapi",
     "uvicorn",
     "python-multipart",
+    "torch",
+    "nemo_toolkit[asr]",
 ]
 
 [tool.setuptools.packages.find]
@@ -54,3 +62,14 @@ ignore = []
 [tool.mypy]
 strict = true
 ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+markers = [
+    "integration: marks tests as integration tests",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest-mock>=3.15.1",
+]

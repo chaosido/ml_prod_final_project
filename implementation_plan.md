@@ -127,9 +127,6 @@ This structure separates concerns (Data vs. Logic vs. Ops).
 2.  **Develop `src/features/acoustic.py`:**
     *   Implement Signal-to-Noise Ratio (SNR).
     *   Implement RMS Energy.
-    *   **Constraint:** Use only `numpy` and `librosa`. No `pandas`.
-3.  **Develop `src/validation.py`:**
-    *   Implement checks: `file_size > 1KB`, `duration > 0.5s`.
 4.  **Unit Tests:**
     *   Test `extract()` with a generated Silent Array (expect SNR=0).
     *   Test `extract()` with White Noise (expect specific SNR).
@@ -206,16 +203,34 @@ This structure separates concerns (Data vs. Logic vs. Ops).
 3.  **AlertManager Rules:**
     *   `alert: HighErrorRate` -> `expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.05`.
 
-### Phase 7: Orchestration & Automation
-**Goal:** Deployment Patterns (Week 5).
 
-1.  **Airflow DAG:**
-    *   **Task 1:** `FileSensor` (Poll `/data/incoming`).
-    *   **Task 2:** `SparkSubmitOperator` (Run Phase 3).
-    *   **Task 3:** `PythonOperator` (Run Phase 4).
-    *   **Task 4:** `BashOperator` (Move trained model to `models/production`).
+### Phase 7: Orchestration & Automation
+**Goal:** Deployment Patterns (Week 5) - **Cumulative Retraining Strategy**.
+
+1.  **Airflow DAG (`dags/qe_trigger.py`):**
+    *   **Trigger:** `FileSensor` watches `/data/incoming/*.wav`. When 500+ new files accumulate:
+    *   **Task 1 (Ingest):** Trigger Spark job to extract features from *new* files and **APPEND** to `/data/features/history.parquet`.
+    *   **Task 2 (Train):** Trigger Python job to load **FULL** history from `/data/features/history.parquet` and retrain the model.
+    *   **Task 3 (Validate):** Compare new model version (V2) against current production model (V1). If V2 is better -> Deploy.
+    *   **Task 4 (Deploy):** Promote model by copying to `/models/production/model.joblib`.
+
 2.  **CI/CD Simulation:**
     *   The DAG should pick up the code from the `src` package. In a real deployment, this would trigger a rebuild of the Docker images.
+
+### Phase 7.5: Testing Strategy & Gap Analysis
+Following the **Test Pyramid** and **FIRST** principles, we identified the following gaps:
+
+#### 1. Unit Tests (Foundation) - 80% Coverage
+*   [x] **Configuration**: `test_config.py` covers env overrides.
+*   [x] **Features**: `test_features_asr.py` covers extraction logic.
+*   [x] **API Logic**: `test_serving.py` covers endpoints with mocks.
+*   [ ] **Observability (Missing)**: Verify that 500 errors actually increment `http_requests_total` and `HighErrorRate` logic.
+
+#### 2. Integration Tests (Middle) - 20% Coverage
+*   [ ] **Container Contract (Missing)**: Verify the built Docker image actually responds to HTTP requests and exposes metrics.
+
+#### 3. System Tests (Top) - 0% Coverage
+*   [ ] **Prometheus Alerting (Missing)**: Verify `alerts.yml` logic.
 
 ---
 

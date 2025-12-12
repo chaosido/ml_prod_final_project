@@ -1,4 +1,3 @@
-# Hydra configuration for ASR-QE jobs
 
 # Training configuration
 training:
@@ -9,16 +8,33 @@ training:
     - rms_db
     - snr_db
     - duration
+    - asr_confidence
   target_column: wer
+  
   # XGBoost hyperparameters
-  n_estimators: 100
-  max_depth: 6
-  learning_rate: 0.1
+  xgboost:
+    n_estimators: 100
+    max_depth: 6
+    learning_rate: 0.1
+    random_state: 42
 
 # Data paths
 data:
   input_path: "/opt/data/features.parquet"
   output_path: "/opt/data/processed"
+
+# Deployment defaults
+deployment:
+  candidate_dir: "models/staging"
+  production_dir: "models/production"
+  output_path: "/opt/data/processed"
+
+# Pipeline Infrastructure (Docker Paths)
+pipeline:
+  incoming_data: "/opt/data/incoming"
+  feature_history: "/opt/data/features/history.parquet"
+  staging_models: "/models/staging"
+  production_models: "/models/production"
 
 # Model output
 model:
@@ -36,5 +52,3 @@ acoustic:
   noise_ratio: 0.1
   epsilon: 1e-9
   silence_db: -100.0
-
-

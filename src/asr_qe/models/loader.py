@@ -4,6 +4,7 @@ Model Loader Module - Singleton Pattern for Model Loading
 This module provides a thread-safe singleton pattern for loading XGBoost models.
 The model is loaded once at startup and reused for all predictions.
 """
+
 import logging
 from functools import lru_cache
 from pathlib import Path
@@ -18,9 +19,10 @@ class ModelLoader:
     """
     Singleton model loader using lru_cache for thread-safe lazy loading.
     """
+
     _instance: Optional["ModelLoader"] = None
     _model = None
-    _model_path: Optional[Path] = None
+    _model_path: Path = None
 
     def __new__(cls, model_path: Optional[str] = None):
         if cls._instance is None:
@@ -34,7 +36,7 @@ class ModelLoader:
         path = Path(model_path)
         if not path.exists():
             raise FileNotFoundError(f"Model not found at {model_path}")
-        
+
         logger.info(f"Loading model from {model_path}")
         self._model = joblib.load(path)
         self._model_path = path
