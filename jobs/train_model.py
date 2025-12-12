@@ -10,8 +10,9 @@ import hydra
 from omegaconf import DictConfig
 
 from asr_qe.data import load_features, prepare_data
-from asr_qe.models.trainer import XGBoostTrainer, InsufficientDataError, ModelPerformanceError
+from asr_qe.models.trainer import XGBoostTrainer
 from asr_qe.utils import setup_logging
+from asr_qe.config import TrainingConfig, XGBoostConfig
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -26,24 +27,31 @@ def main(cfg: DictConfig) -> int:
     # Load data
     df = load_features(cfg.data.input_path)
     
-    # Prepare data
-    X, y = prepare_data(
-        df, 
-        feature_columns=cfg.training.feature_columns, 
-        target_column=cfg.training.target_column,
-    )
-    
-    # Train model (raises exceptions on failure for Airflow compatibility)
-    trainer = XGBoostTrainer(
+    # Build configs from Hydra
+    training_config = TrainingConfig(
         min_samples=cfg.training.min_samples,
         min_spearman_rho=cfg.training.min_spearman_rho,
         model_dir=cfg.model.output_dir,
+        feature_columns=tuple(cfg.training.feature_columns),
+        target_column=cfg.training.target_column,
         test_size=cfg.training.test_size,
+    )
+    
+    xgboost_config = XGBoostConfig(
         n_estimators=cfg.training.n_estimators,
         max_depth=cfg.training.max_depth,
         learning_rate=cfg.training.learning_rate,
     )
     
+    # Prepare data
+    X, y = prepare_data(
+        df, 
+        feature_columns=training_config.feature_columns, 
+        target_column=training_config.target_column,
+    )
+    
+    # Train model (raises ValueError on failure for Airflow compatibility)
+    trainer = XGBoostTrainer(training_config, xgboost_config)
     result = trainer.train(X, y)
     
     logger.info("Training successful!")

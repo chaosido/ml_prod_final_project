@@ -3,16 +3,11 @@ Unit tests for the model trainer module.
 """
 import pytest
 import numpy as np
-from unittest.mock import patch
 from pathlib import Path
 import tempfile
 
-from asr_qe.models.trainer import (
-    XGBoostTrainer,
-    TrainingResult,
-    InsufficientDataError,
-    ModelPerformanceError,
-)
+from asr_qe.config import TrainingConfig, XGBoostConfig
+from asr_qe.models.trainer import XGBoostTrainer, TrainingResult
 
 
 @pytest.fixture
@@ -22,27 +17,43 @@ def temp_model_dir():
         yield tmpdir
 
 
-def test_validate_data_sufficient(temp_model_dir):
+@pytest.fixture
+def training_config(temp_model_dir):
+    """Create a test training config."""
+    return TrainingConfig(
+        min_samples=10,
+        min_spearman_rho=0.1,
+        model_dir=temp_model_dir,
+        test_size=0.2,
+    )
+
+
+@pytest.fixture
+def xgboost_config():
+    """Create a test XGBoost config."""
+    return XGBoostConfig(n_estimators=10)
+
+
+def test_validate_data_sufficient(training_config, xgboost_config):
     """Test that validation passes with sufficient samples."""
-    trainer = XGBoostTrainer(min_samples=10, model_dir=temp_model_dir)
+    trainer = XGBoostTrainer(training_config, xgboost_config)
     X = np.random.randn(20, 2)
     
-    # Should not raise
     trainer._validate_data(X)
 
 
-def test_validate_data_insufficient(temp_model_dir):
+def test_validate_data_insufficient(training_config, xgboost_config):
     """Test that validation fails with insufficient samples."""
-    trainer = XGBoostTrainer(min_samples=10, model_dir=temp_model_dir)
+    trainer = XGBoostTrainer(training_config, xgboost_config)
     X = np.random.randn(5, 2)
     
-    with pytest.raises(InsufficientDataError, match="Insufficient"):
+    with pytest.raises(ValueError, match="Insufficient"):
         trainer._validate_data(X)
 
 
-def test_calculate_metrics(temp_model_dir):
+def test_calculate_metrics(training_config, xgboost_config):
     """Test metric calculation."""
-    trainer = XGBoostTrainer(model_dir=temp_model_dir)
+    trainer = XGBoostTrainer(training_config, xgboost_config)
     
     cases = [
         {
@@ -65,37 +76,30 @@ def test_calculate_metrics(temp_model_dir):
             f"{case['name']}: Unexpected rho {metrics['spearman_rho']}"
 
 
-def test_validate_metrics_passes(temp_model_dir):
+def test_validate_metrics_passes(training_config, xgboost_config):
     """Test that good metrics pass validation."""
-    trainer = XGBoostTrainer(min_spearman_rho=0.3, model_dir=temp_model_dir)
+    trainer = XGBoostTrainer(training_config, xgboost_config)
     
-    # Should not raise
     trainer._validate_metrics({"spearman_rho": 0.5})
 
 
-def test_validate_metrics_fails(temp_model_dir):
+def test_validate_metrics_fails(temp_model_dir, xgboost_config):
     """Test that poor metrics fail validation."""
-    trainer = XGBoostTrainer(min_spearman_rho=0.4, model_dir=temp_model_dir)
+    config = TrainingConfig(min_spearman_rho=0.4, model_dir=temp_model_dir)
+    trainer = XGBoostTrainer(config, xgboost_config)
     
-    with pytest.raises(ModelPerformanceError, match="below threshold"):
+    with pytest.raises(ValueError, match="below threshold"):
         trainer._validate_metrics({"spearman_rho": 0.1})
 
 
-def test_full_training_pipeline(temp_model_dir):
+def test_full_training_pipeline(training_config, xgboost_config):
     """Integration test for full training pipeline."""
     np.random.seed(42)
     
-    # Generate synthetic data with clear correlation
     X = np.random.randn(100, 2)
     y = X[:, 0] * 0.5 + X[:, 1] * 0.3 + np.random.randn(100) * 0.1
     
-    trainer = XGBoostTrainer(
-        min_samples=10,
-        min_spearman_rho=0.1,  # Low threshold for synthetic data
-        model_dir=temp_model_dir,
-        n_estimators=10,
-    )
-    
+    trainer = XGBoostTrainer(training_config, xgboost_config)
     result = trainer.train(X, y)
     
     assert result.spearman_rho > 0.1
@@ -103,12 +107,13 @@ def test_full_training_pipeline(temp_model_dir):
     assert Path(result.model_path).exists()
 
 
-def test_training_raises_on_insufficient_data(temp_model_dir):
+def test_training_raises_on_insufficient_data(temp_model_dir, xgboost_config):
     """Test that training raises exception with insufficient data."""
-    trainer = XGBoostTrainer(min_samples=100, model_dir=temp_model_dir)
+    config = TrainingConfig(min_samples=100, model_dir=temp_model_dir)
+    trainer = XGBoostTrainer(config, xgboost_config)
     
     X = np.random.randn(10, 2)
     y = np.random.randn(10)
     
-    with pytest.raises(InsufficientDataError):
+    with pytest.raises(ValueError, match="Insufficient"):
         trainer.train(X, y)

@@ -6,7 +6,7 @@ Provides training logic for the ASR Quality Estimation model.
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict
 
 import joblib
 import numpy as np
@@ -14,16 +14,6 @@ from scipy.stats import spearmanr
 from sklearn.model_selection import train_test_split
 
 logger = logging.getLogger(__name__)
-
-
-class InsufficientDataError(Exception):
-    """Raised when training data doesn't meet minimum requirements."""
-    pass
-
-
-class ModelPerformanceError(Exception):
-    """Raised when model performance is below threshold."""
-    pass
 
 
 class TrainingResult:
@@ -54,41 +44,23 @@ class XGBoostTrainer:
     - Model versioning and saving
     """
     
-    def __init__(
-        self,
-        min_samples: int = 1000,
-        min_spearman_rho: float = 0.4,
-        model_dir: str = "models",
-        test_size: float = 0.2,
-        random_state: int = 42,
-        n_estimators: int = 100,
-        max_depth: int = 6,
-        learning_rate: float = 0.1,
-    ):
-        # Training validation config
-        self.min_samples = min_samples
-        self.min_spearman_rho = min_spearman_rho
-        self.model_dir = model_dir
-        self.test_size = test_size
-        self.random_state = random_state
-        
-        # XGBoost hyperparameters
-        self.xgb_params = {
-            "n_estimators": n_estimators,
-            "max_depth": max_depth,
-            "learning_rate": learning_rate,
-            "random_state": random_state,
-        }
-        
+    def __init__(self, training_config, xgboost_config):
+        """
+        Args:
+            training_config: TrainingConfig from conf/configs.py
+            xgboost_config: XGBoostConfig from conf/configs.py
+        """
+        self.training_config = training_config
+        self.xgboost_config = xgboost_config
         self._model = None
 
     def _validate_data(self, X: np.ndarray) -> None:
         """Validate training data meets minimum requirements."""
         num_samples = len(X)
-        if num_samples < self.min_samples:
-            raise InsufficientDataError(
+        if num_samples < self.training_config.min_samples:
+            raise ValueError(
                 f"Insufficient training data: {num_samples} samples "
-                f"(minimum: {self.min_samples})"
+                f"(minimum: {self.training_config.min_samples})"
             )
         logger.info(f"Data validation passed: {num_samples} samples")
 
@@ -110,16 +82,16 @@ class XGBoostTrainer:
     def _validate_metrics(self, metrics: Dict[str, float]) -> None:
         """Validate model performance meets threshold."""
         rho = metrics.get("spearman_rho", 0)
-        if rho < self.min_spearman_rho:
-            raise ModelPerformanceError(
+        if rho < self.training_config.min_spearman_rho:
+            raise ValueError(
                 f"Model performance below threshold: Spearman Rho = {rho:.4f} "
-                f"(minimum: {self.min_spearman_rho})"
+                f"(minimum: {self.training_config.min_spearman_rho})"
             )
         logger.info(f"Metrics validation passed: Spearman Rho = {rho:.4f}")
 
     def _save_model(self, timestamp: str) -> str:
         """Save model to disk with versioning."""
-        model_dir = Path(self.model_dir) / f"v{timestamp}"
+        model_dir = Path(self.training_config.model_dir) / f"v{timestamp}"
         model_dir.mkdir(parents=True, exist_ok=True)
         
         model_path = model_dir / "model.joblib"
@@ -140,8 +112,7 @@ class XGBoostTrainer:
             TrainingResult with model path and metrics
             
         Raises:
-            InsufficientDataError: If data doesn't meet minimum requirements
-            ModelPerformanceError: If model Spearman Rho is below threshold
+            ValueError: If data insufficient or model performance below threshold
         """
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         
@@ -151,14 +122,19 @@ class XGBoostTrainer:
         # Split data
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, 
-            test_size=self.test_size, 
-            random_state=self.random_state
+            test_size=self.training_config.test_size, 
+            random_state=self.training_config.random_state,
         )
         logger.info(f"Split: {len(X_train)} train, {len(X_test)} test")
         
         # Create and train model
         from xgboost import XGBRegressor
-        self._model = XGBRegressor(**self.xgb_params)
+        self._model = XGBRegressor(
+            n_estimators=self.xgboost_config.n_estimators,
+            max_depth=self.xgboost_config.max_depth,
+            learning_rate=self.xgboost_config.learning_rate,
+            random_state=self.xgboost_config.random_state,
+        )
         self._model.fit(X_train, y_train)
         logger.info("XGBoost model training complete")
         
@@ -166,7 +142,7 @@ class XGBoostTrainer:
         y_pred = self._model.predict(X_test)
         metrics = self._calculate_metrics(y_test, y_pred)
         
-        # Validate performance (raises if below threshold)
+        # Validate performance (raises ValueError if below threshold)
         self._validate_metrics(metrics)
         
         # Save model

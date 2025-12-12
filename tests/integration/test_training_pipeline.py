@@ -1,10 +1,5 @@
 """
 Integration tests for the model training pipeline.
-
-These tests verify the full end-to-end training workflow:
-1. Loading features from parquet
-2. Training the model
-3. Saving and loading the model
 """
 import pytest
 import tempfile
@@ -15,8 +10,10 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from asr_qe.config import TrainingConfig, XGBoostConfig
 from asr_qe.models.trainer import XGBoostTrainer
 from asr_qe.models.loader import ModelLoader
+from asr_qe.data import prepare_data
 
 
 @pytest.fixture
@@ -40,7 +37,6 @@ def sample_features_parquet(temp_dir):
         "wer": np.random.uniform(0, 1, n_samples),
     })
     
-    # Make target correlated with features
     df["wer"] = 0.5 - 0.01 * df["snr_db"] + 0.005 * df["rms_db"] + np.random.randn(n_samples) * 0.1
     df["wer"] = df["wer"].clip(0, 1)
     
@@ -54,24 +50,22 @@ def test_full_training_pipeline(temp_dir, sample_features_parquet):
     """Test complete training pipeline from parquet to saved model."""
     df = pd.read_parquet(sample_features_parquet)
     
-    feature_columns = ["rms_db", "snr_db", "duration"]
-    target_column = "wer"
-    
-    X = df[feature_columns].values
-    y = df[target_column].values
-    
-    trainer = XGBoostTrainer(
+    training_config = TrainingConfig(
         min_samples=50,
         min_spearman_rho=0.1,
         model_dir=temp_dir,
-        n_estimators=50,
     )
+    xgboost_config = XGBoostConfig(n_estimators=50)
+    
+    X = df[["rms_db", "snr_db", "duration"]].values
+    y = df["wer"].values
+    
+    trainer = XGBoostTrainer(training_config, xgboost_config)
     result = trainer.train(X, y)
     
     assert result.num_samples == 100
     assert Path(result.model_path).exists()
     
-    # Verify model can be loaded and used
     ModelLoader._instance = None
     loader = ModelLoader()
     loader.load(result.model_path)
@@ -84,8 +78,6 @@ def test_full_training_pipeline(temp_dir, sample_features_parquet):
 
 def test_training_with_missing_target_column(temp_dir):
     """Test that prepare_data fails gracefully with missing target column."""
-    from asr_qe.data import prepare_data
-    
     df = pd.DataFrame({
         "rms_db": [1, 2, 3],
         "snr_db": [10, 20, 30],
@@ -100,15 +92,17 @@ def test_model_versioning(temp_dir, sample_features_parquet):
     """Test that multiple training runs create versioned models."""
     df = pd.read_parquet(sample_features_parquet)
     
-    X = df[["rms_db", "snr_db", "duration"]].values
-    y = df["wer"].values
-    
-    trainer = XGBoostTrainer(
+    training_config = TrainingConfig(
         min_samples=10,
         min_spearman_rho=0.0,
         model_dir=temp_dir,
-        n_estimators=10,
     )
+    xgboost_config = XGBoostConfig(n_estimators=10)
+    
+    X = df[["rms_db", "snr_db", "duration"]].values
+    y = df["wer"].values
+    
+    trainer = XGBoostTrainer(training_config, xgboost_config)
     
     result1 = trainer.train(X, y)
     time.sleep(1.1)
