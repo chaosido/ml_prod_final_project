@@ -4,6 +4,13 @@
 training:
   min_samples: 1000
   min_spearman_rho: 0.4
+  test_size: 0.2
+  feature_columns:
+    - rms_db
+    - snr_db
+    - duration
+  target_column: wer
+  # XGBoost hyperparameters
   n_estimators: 100
   max_depth: 6
   learning_rate: 0.1

@@ -30,7 +30,7 @@ ENV/
 *.mp3
 
 # Models (too large for git)
-models/
+/models/
 *.joblib
 *.pkl
 
