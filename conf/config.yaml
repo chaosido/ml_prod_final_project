@@ -1,0 +1,31 @@
+# Hydra configuration for ASR-QE jobs
+
+# Training configuration
+training:
+  min_samples: 1000
+  min_spearman_rho: 0.4
+  n_estimators: 100
+  max_depth: 6
+  learning_rate: 0.1
+
+# Data paths
+data:
+  input_path: "/opt/data/features.parquet"
+  output_path: "/opt/data/processed"
+
+# Model output
+model:
+  output_dir: "models"
+
+# Feature extraction (Spark)
+spark:
+  app_name: "ASR-QE-FeatureExtraction"
+  partitions_multiplier: 3
+
+# Acoustic feature extraction
+acoustic:
+  frame_length: 2048
+  hop_length: 512
+  noise_ratio: 0.1
+  epsilon: 1e-9
+  silence_db: -100.0

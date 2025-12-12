@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "asr_qe"
+version = "0.1.0"
+description = "ASR Quality Estimation System"
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic",
+    "numpy",
+    "librosa",
+    "soundfile",
+    "datasets==2.20.0",
+    "xgboost",
+    "scipy",
+    "joblib",
+    "pandas",
+    "hydra-core",
+    "omegaconf",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "ruff",
+    "mypy",
+    "black",
+]
+spark = [
+    "pyspark==3.5.0",
+]
+api = [
+    "fastapi",
+    "uvicorn",
+    "python-multipart",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+select = ["E", "F", "I"]
+ignore = []
+
+[tool.mypy]
+strict = true
+ignore_missing_imports = true

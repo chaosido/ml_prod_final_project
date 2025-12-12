@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+*.egg
+dist/
+build/
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Data files (too large for git)
+data/
+*.parquet
+*.wav
+*.mp3
+
+# Models (too large for git)
+models/
+*.joblib
+*.pkl
+
+# Logs
+logs/
+*.log
+
+# Hydra outputs
+outputs/
+multirun/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# UV
+uv.lock
+
+# Test cache
+.pytest_cache/
+.coverage
+htmlcov/
