@@ -1,89 +1,96 @@
 import io
-import os
-import argparse
+import logging
 import soundfile as sf
-import numpy as np
-import pyspark.sql.functions as F
-from pyspark.sql import SparkSession
+import hydra
+from omegaconf import DictConfig
+
+from pyspark.sql import SparkSession, Row
 from pyspark.sql.types import StructType, StructField, FloatType, StringType
 
-# Import the core logic from our verified package
 from asr_qe.features.acoustic import AcousticFeatureExtractor
 
-def parse_args():
-    parser = argparse.ArgumentParser(description="Distributed Feature Extraction Job")
-    parser.add_argument("--input", default="/opt/data/incoming", help="Path to raw audio files")
-    parser.add_argument("--output", default="/opt/data/features.parquet", help="Path to output parquet")
-    return parser.parse_args()
+def process_partition(partition):
+    '''
+    Worker function to extract features from audio files.
+    
+    Args:
+        partition: A partition of the RDD containing audio files.
+    
+    Yields:
+        A generator of Row objects containing the extracted features.
+    '''
+    worker_logger = logging.getLogger("WorkerLogger")
+    
 
-def main():
-    args = parse_args()
+    try:
+        extractor = AcousticFeatureExtractor()
+    except Exception as e:
+        worker_logger.critical(f"Failed to initialize feature extractor: {str(e)}")
+        raise e
+    
+    for row in partition:
+        try:
+            audio_io = io.BytesIO(row.content)
+            audio, sr = sf.read(audio_io)
+            
+            features = extractor.extract(audio, sr)
+            
+            yield Row(
+                path=row.path, 
+                rms_db=float(features.get("rms_db", 0.0)), 
+                snr_db=float(features.get("snr_db", 0.0)), 
+                duration=float(features.get("duration", 0.0)),
+            )
+        except Exception as e:
+            worker_logger.warning(f"Processing failed for {row.path}: {str(e)}")
+            
+            yield Row(
+                path=row.path, 
+                rms_db=None, snr_db=None, duration=None,
+            )
+
+@hydra.main(version_base=None, config_path="../../conf", config_name="config")
+def main(cfg: DictConfig):
     
     spark = SparkSession.builder \
-        .appName("ASR-QE-FeatureExtraction") \
+        .appName(cfg.spark.app_name) \
         .getOrCreate()
-        
-    print(f"Reading from: {args.input}")
+
+    sc = spark.sparkContext
     
-    # Read binary files (content is byte[])
+    log4j_logger = sc._jvm.org.apache.log4j
+    logger = log4j_logger.LogManager.getLogger(cfg.spark.app_name)
+    
+    # check how many cores to parallelise effectively
+    total_cores = int(sc.defaultParallelism)
+    num_partitions = total_cores * cfg.spark.partitions_multiplier
+    
+    logger.info(f"Job Started. Input: {cfg.data.input_path}")
+    logger.info(f"Architecture: {total_cores} Cores, {num_partitions} Partitions")
+    
     raw_df = spark.read.format("binaryFile") \
         .option("pathGlobFilter", "*.wav") \
         .option("recursiveFileLookup", "true") \
-        .load(args.input)
+        .load(cfg.data.input_path)
         
-    # Repartition to distribute work
-    raw_df = raw_df.repartition(100)
-
-    # Define the output schema
+    raw_df = raw_df.repartition(num_partitions)
+    
     feature_schema = StructType([
+        StructField("path", StringType(), True),
         StructField("rms_db", FloatType(), True),
         StructField("snr_db", FloatType(), True),
         StructField("duration", FloatType(), True),
     ])
 
-    # Instantiate extractor once (per executor ideally, but inside UDF is easier for starters)
-    # Note: Instantiating class inside UDF is slightly inefficient but safe. 
-    # For high performance, we'd use mapPartitions or broadcast the instance.
-    @F.udf(returnType=feature_schema)
-    def extract_features_udf(audio_content):
-        try:
-            # Convert bytes to file-like object
-            audio_io = io.BytesIO(audio_content)
-            
-            # Read audio using soundfile (safe for in-memory)
-            audio, sr = sf.read(audio_io)
-            
-            # Extract
-            extractor = AcousticFeatureExtractor()
-            features = extractor.extract(audio, sr)
-            
-            return (
-                float(features.get("rms_db", 0.0)),
-                float(features.get("snr_db", 0.0)),
-                float(features.get("duration", 0.0))
-            )
-        except Exception as e:
-            # Log error (in a real system, print goes to executor stderr)
-            # Returning None filters this row out later
-            return None
+    # Transform to rdd which allows for efficient parallelization in spark 
+    feature_rdd = raw_df.rdd.mapPartitions(process_partition)
+    feature_df = spark.createDataFrame(feature_rdd, schema=feature_schema)
 
-    # Apply UDF
-    features_df = raw_df.withColumn("features", extract_features_udf(F.col("content")))
+    logger.info(f"Writing dataset to {cfg.data.output_path}")
     
-    # Filter failures
-    valid_features_df = features_df.filter(F.col("features").isNotNull())
-    
-    # Flatten the struct
-    final_df = valid_features_df.select(
-        F.col("path"),
-        F.col("features.rms_db"),
-        F.col("features.snr_db"),
-        F.col("features.duration")
-    )
-    
-    print(f"Writing to: {args.output}")
-    final_df.write.mode("append").parquet(args.output)
-    
+    # Write
+    feature_df.write.mode("append").parquet(cfg.data.output_path)
+
     spark.stop()
 
 if __name__ == "__main__":

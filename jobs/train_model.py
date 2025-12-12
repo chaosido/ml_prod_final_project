@@ -25,7 +25,6 @@ def main(cfg: DictConfig) -> int:
     # Load data
     df = load_features(cfg.data.input_path)
     
-    # Configure training from Hydra config
     config = TrainingConfig(
         min_samples=cfg.training.min_samples,
         min_spearman_rho=cfg.training.min_spearman_rho,
@@ -33,7 +32,11 @@ def main(cfg: DictConfig) -> int:
     )
     
     # Prepare data
-    X, y = prepare_data(df, config)
+    X, y = prepare_data(
+        df, 
+        feature_columns=config.feature_columns, 
+        target_column=config.target_column
+    )
     
     # Train model
     trainer = XGBoostTrainer(

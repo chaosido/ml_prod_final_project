@@ -6,12 +6,10 @@ and preparing it for model training or inference.
 """
 import logging
 from pathlib import Path
-from typing import Tuple
+from typing import Sequence, Tuple
 
 import numpy as np
 import pandas as pd
-
-from asr_qe.models.trainer import TrainingConfig
 
 logger = logging.getLogger(__name__)
 
@@ -27,26 +25,23 @@ def load_features(input_path: str) -> pd.DataFrame:
         DataFrame with loaded features.
     """
     path = Path(input_path)
-    
-    if path.is_dir():
-        df = pd.read_parquet(path)
-    else:
-        df = pd.read_parquet(path)
-    
+    df = pd.read_parquet(path)
     logger.info(f"Loaded {len(df)} samples from {input_path}")
     return df
 
 
 def prepare_data(
-    df: pd.DataFrame, 
-    config: TrainingConfig
+    df: pd.DataFrame,
+    feature_columns: Sequence[str],
+    target_column: str,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Prepare feature matrix and target vector from DataFrame.
     
     Args:
         df: DataFrame containing features and target.
-        config: Training configuration with column specifications.
+        feature_columns: List of column names to use as features.
+        target_column: Name of target column.
         
     Returns:
         Tuple of (X, y) arrays ready for training.
@@ -54,19 +49,19 @@ def prepare_data(
     Raises:
         ValueError: If required columns are missing.
     """
-    feature_cols = list(config.feature_columns)
+    feature_cols = list(feature_columns)
     
     # Validate columns exist
     missing_cols = set(feature_cols) - set(df.columns)
     if missing_cols:
         raise ValueError(f"Missing feature columns: {missing_cols}")
     
-    if config.target_column not in df.columns:
-        raise ValueError(f"Target column '{config.target_column}' not found in data")
+    if target_column not in df.columns:
+        raise ValueError(f"Target column '{target_column}' not found in data")
     
     # Extract arrays
     X = df[feature_cols].values
-    y = df[config.target_column].values
+    y = df[target_column].values
     
     # Filter NaN values
     valid_mask = ~(np.isnan(X).any(axis=1) | np.isnan(y))
