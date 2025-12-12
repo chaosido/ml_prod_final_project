@@ -1,6 +1,3 @@
-"""
-Unit tests for the model trainer module.
-"""
 import pytest
 import numpy as np
 from pathlib import Path

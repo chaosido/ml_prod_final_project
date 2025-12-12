@@ -50,7 +50,7 @@ def main(cfg: DictConfig) -> int:
         target_column=training_config.target_column,
     )
     
-    # Train model (raises ValueError on failure for Airflow compatibility)
+    # Train model
     trainer = XGBoostTrainer(training_config, xgboost_config)
     result = trainer.train(X, y)
     

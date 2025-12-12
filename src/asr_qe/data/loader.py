@@ -51,10 +51,14 @@ def prepare_data(
     """
     feature_cols = list(feature_columns)
     
-    # Validate columns exist
+    # Filter out missing columns with a warning
     missing_cols = set(feature_cols) - set(df.columns)
     if missing_cols:
-        raise ValueError(f"Missing feature columns: {missing_cols}")
+        logger.warning(f"Missing feature columns: {missing_cols}. Available columns: {list(df.columns)}")
+        logger.warning(f"Using only available features: {set(feature_cols) - missing_cols}")
+        feature_cols = [col for col in feature_cols if col in df.columns]
+        if not feature_cols:
+            raise ValueError(f"No valid feature columns found. Requested: {list(feature_columns)}, Available: {list(df.columns)}")
     
     if target_column not in df.columns:
         raise ValueError(f"Target column '{target_column}' not found in data")

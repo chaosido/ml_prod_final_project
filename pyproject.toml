@@ -9,7 +9,7 @@ description = "ASR Quality Estimation System"
 requires-python = ">=3.12"
 dependencies = [
     "pydantic",
-    "numpy",
+    "numpy<2.0",
     "librosa",
     "soundfile",
     "datasets==2.20.0",
@@ -19,6 +19,11 @@ dependencies = [
     "pandas",
     "hydra-core",
     "omegaconf",
+    "transformers",
+    "jiwer",
+    "tqdm",
+    "nemo_toolkit[asr]",
+    "cuda-python>=12.3",  # For NeMo CUDA graph optimization
 ]
 
 [project.optional-dependencies]
