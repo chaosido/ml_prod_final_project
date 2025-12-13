@@ -1,8 +1,10 @@
 import logging
+from typing import Any, List, Optional
+
 import numpy as np
-from typing import List, Optional, Any
 
 logger = logging.getLogger(__name__)
+
 
 def log_diagnostics(
     X_train: np.ndarray,
@@ -14,7 +16,8 @@ def log_diagnostics(
     feature_names: Optional[List[str]] = None,
 ) -> None:
     """
-    Log diagnostic information about model performance and features.
+    Log diagnostic information about model performance and features, we can use this to know how features did in the model,  # noqa: E501
+    and it automatically gets called in the trainer loop.
 
     Args:
         X_train: Training feature matrix
@@ -34,7 +37,7 @@ def log_diagnostics(
         feature_names = [f"feature_{i}" for i in range(X_train.shape[1])]
     elif len(feature_names) != X_train.shape[1]:
         logger.warning(
-            f"Feature names length ({len(feature_names)}) doesn't match features ({X_train.shape[1]}), using defaults"
+            f"Feature names length ({len(feature_names)}) doesn't match features ({X_train.shape[1]}), using defaults"  # noqa: E501
         )
         feature_names = [f"feature_{i}" for i in range(X_train.shape[1])]
 
@@ -62,7 +65,7 @@ def log_diagnostics(
         feat_max = np.max(feat_values)
         logger.info(f"  {feat_name}:")
         logger.info(
-            f"    Mean: {feat_mean:.4f}, Std: {feat_std:.4f}, Min: {feat_min:.4f}, Max: {feat_max:.4f}"
+            f"    Mean: {feat_mean:.4f}, Std: {feat_std:.4f}, Min: {feat_min:.4f}, Max: {feat_max:.4f}"  # noqa: E501
         )
 
     # Feature-target correlations
@@ -78,17 +81,15 @@ def log_diagnostics(
     # Prediction statistics
     logger.info("Prediction Statistics (on test set):")
     logger.info(
-        f"  Actual WER - Mean: {np.mean(y_test):.4f}, Std: {np.std(y_test):.4f}, Min: {np.min(y_test):.4f}, Max: {np.max(y_test):.4f}"
+        f"  Actual WER - Mean: {np.mean(y_test):.4f}, Std: {np.std(y_test):.4f}, Min: {np.min(y_test):.4f}, Max: {np.max(y_test):.4f}"  # noqa: E501
     )
     logger.info(
-        f"  Predicted WER - Mean: {np.mean(y_pred):.4f}, Std: {np.std(y_pred):.4f}, Min: {np.min(y_pred):.4f}, Max: {np.max(y_pred):.4f}"
+        f"  Predicted WER - Mean: {np.mean(y_pred):.4f}, Std: {np.std(y_pred):.4f}, Min: {np.min(y_pred):.4f}, Max: {np.max(y_pred):.4f}"  # noqa: E501
     )
-    
+
     # Error stats
     error = np.abs(y_test - y_pred)
     rmse = np.sqrt(np.mean((y_test - y_pred) ** 2))
-    logger.info(
-        f"  Prediction Error - Mean: {np.mean(error):.4f}, RMSE: {rmse:.4f}"
-    )
+    logger.info(f"  Prediction Error - Mean: {np.mean(error):.4f}, RMSE: {rmse:.4f}")
 
     logger.info("=" * 60)

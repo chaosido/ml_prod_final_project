@@ -2,66 +2,85 @@
 Integration test for Airflow DAG loading.
 
 This test verifies that the DAG file can be parsed and loaded without
-ImportErrors or syntax issues. This is critical for CI/CD pipelines.
+ImportErrors or syntax issues. Checks structure, dependencies, and cycles.
 """
-import pytest
+
+import sys
 from pathlib import Path
+
+import pytest
+
+# Add dags directory to path so we can import the pipeline
+DAGS_DIR = Path(__file__).parent.parent.parent / "dags"
+sys.path.insert(0, str(DAGS_DIR))
+
+
+@pytest.fixture(scope="module")
+def dag_object():
+    """Load the DAG object once for all tests."""
+    try:
+        import qe_pipeline
+
+        # Access the DAG object directly
+        # If it's not named 'dag', find it in the module
+        dag = getattr(qe_pipeline, "dag", None)
+        if dag is None:
+            for _, obj in vars(qe_pipeline).items():
+                if hasattr(obj, "task_dict") and hasattr(obj, "dag_id"):
+                    dag = obj
+                    break
+        return dag
+    except ImportError as e:
+        pytest.fail(f"Failed to import DAG: {e}")
+    finally:
+        # Cleanup path is handled by module scope behavior roughly,
+        # but sys.path persists. That's fine for test process.
+        pass
 
 
 class TestDAGIntegrity:
-    """Tests to ensure DAG files are valid and loadable."""
-    
-    def test_dag_file_exists(self):
-        """Verify the DAG file exists in the expected location."""
-        dag_path = Path(__file__).parent.parent.parent / "dags" / "qe_pipeline.py"
-        assert dag_path.exists(), f"DAG file not found at {dag_path}"
-    
-    def test_dag_imports_successfully(self):
-        """Test that the DAG module can be imported without errors."""
-        import sys
-        from pathlib import Path
-        
-        # Add dags directory to path for import
-        dags_dir = Path(__file__).parent.parent.parent / "dags"
-        sys.path.insert(0, str(dags_dir))
-        
-        try:
-            # This will fail if there are import errors in the DAG
-            import qe_pipeline
-            
-            # Verify the DAG object exists
-            assert hasattr(qe_pipeline, "dag") or hasattr(qe_pipeline, "asr_qe_cumulative_retraining"), \
-                "DAG object not found in module"
-        finally:
-            # Clean up path
-            sys.path.remove(str(dags_dir))
-    
-    def test_dag_has_required_tasks(self):
-        """Test that the DAG contains the expected tasks."""
-        import sys
-        from pathlib import Path
-        
-        dags_dir = Path(__file__).parent.parent.parent / "dags"
-        sys.path.insert(0, str(dags_dir))
-        
-        try:
-            import qe_pipeline
-            
-            # Get the DAG - it might be defined differently
-            dag = getattr(qe_pipeline, "dag", None)
-            if dag is None:
-                # Check for the DAG in globals
-                for name, obj in vars(qe_pipeline).items():
-                    if hasattr(obj, "task_dict"):
-                        dag = obj
-                        break
-            
-            if dag is not None:
-                task_ids = list(dag.task_dict.keys())
-                
-                # Check for expected tasks (must match actual task_ids in qe_pipeline.py)
-                expected_tasks = ["wait_for_incoming_data", "ingest_data", "train_model", "validate_model", "deploy_model"]
-                for task in expected_tasks:
-                    assert task in task_ids, f"Expected task '{task}' not found in DAG. Found: {task_ids}"
-        finally:
-            sys.path.remove(str(dags_dir))
+    """Tests to ensure DAG structure and integrity."""
+
+    def test_dag_loaded_successfully(self, dag_object):
+        """Verify DAG object was found and loaded."""
+        assert dag_object is not None
+        assert dag_object.dag_id == "asr_qe_pipeline"
+
+    def test_dag_has_no_cycles(self, dag_object):
+        """Check for cycle errors in the DAG."""
+        # Airflow's DAG.validate() checks for cycles
+        dag_object.validate()
+
+    @pytest.mark.parametrize(
+        "expected_task_id",
+        [
+            "wait_for_incoming_data",
+            "ingest_data",
+            "archive_processed_files",
+            "train_model",
+            "validate_model",
+            "deploy_model",
+        ],
+    )
+    def test_dag_contains_task(self, dag_object, expected_task_id):
+        """Verify specific critical tasks exist."""
+        assert expected_task_id in dag_object.task_dict
+
+    def test_task_dependencies(self, dag_object):
+        """Verify the order of operations (dependencies)."""
+        tasks = dag_object.task_dict
+
+        # Ingest depends on Wait
+        assert "wait_for_incoming_data" in tasks["ingest_data"].upstream_task_ids
+
+        # Archive depends on Ingest
+        assert "ingest_data" in tasks["archive_processed_files"].upstream_task_ids
+
+        # Train depends on Archive (ensures data is moved only after features extracted)
+        assert "archive_processed_files" in tasks["train_model"].upstream_task_ids
+
+        # Validate depends on Train
+        assert "train_model" in tasks["validate_model"].upstream_task_ids
+
+        # Deploy depends on Validate
+        assert "validate_model" in tasks["deploy_model"].upstream_task_ids

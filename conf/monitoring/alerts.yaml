@@ -11,8 +11,8 @@ groups:
       summary: "High API Error Rate"
       description: "More than 5% of requests are failing (5xx) over the last 5 minutes."
 
-  # 2. Model Health: Is the Model Predicting "Garbage" constantly? (Drift)
-  # We check if > 50% of predictions have WER > 0.5 (very bad transcript)
+  # 2. Model Health: Is the Model Predicting Drift?
+  # I just run a heuristic: if > 50% of predictions have WER > 0.5 (very bad transcript)
   - alert: ModelDriftHighWER
     expr: rate(low_quality_transcripts_total[10m]) / rate(http_requests_total[10m]) > 0.5
     for: 10m

@@ -1,10 +1,15 @@
+import io
+import os
+import time
+
+import numpy as np
 import pytest
 import requests
-import time
-import os
+import soundfile as sf
 
 # Configuration
 API_URL = os.getenv("API_URL", "http://localhost:8000")
+
 
 def wait_for_api(timeout=30):
     """Waits for the API to become healthy."""
@@ -19,19 +24,21 @@ def wait_for_api(timeout=30):
         time.sleep(1)
     return False
 
+
 @pytest.mark.integration
 def test_docker_health_contract():
     """Verify the container exposes the health check."""
     if not wait_for_api(timeout=5):
         pytest.skip("API not available - is Docker running?")
-    
+
     resp = requests.get(f"{API_URL}/")
     assert resp.status_code == 200
     assert resp.json()["status"] == "ok"
 
+
 @pytest.mark.integration
 def test_docker_metrics_exposed():
-    """Verify Prometheus metrics are scraped correctly."""
+    """Verify Prometheus metrics are used correctly."""
     if not wait_for_api(timeout=1):
         pytest.skip("API not available - is Docker running?")
 
@@ -39,6 +46,7 @@ def test_docker_metrics_exposed():
     assert resp.status_code == 200
     assert "input_audio_snr_db" in resp.text
     assert "predicted_wer_bucket" in resp.text
+
 
 @pytest.mark.integration
 def test_docker_predict_endpoint():
@@ -48,18 +56,15 @@ def test_docker_predict_endpoint():
 
     # Create a dummy WAV file in memory
     # 1 second of silence
-    import io
-    import soundfile as sf
-    import numpy as np
-    
+
     buffer = io.BytesIO()
-    sf.write(buffer, np.zeros(16000), 16000, format='WAV', subtype='PCM_16')
+    sf.write(buffer, np.zeros(16000), 16000, format="WAV", subtype="PCM_16")
     buffer.seek(0)
-    
+
     files = {"audio_file": ("silence.wav", buffer, "audio/wav")}
-    
+
     resp = requests.post(f"{API_URL}/predict", files=files)
-    
+
     assert resp.status_code == 200
     data = resp.json()
     assert "predicted_wer" in data

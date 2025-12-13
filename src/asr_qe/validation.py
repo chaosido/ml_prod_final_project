@@ -1,7 +1,7 @@
-import os
-import soundfile as sf
 from pathlib import Path
 from typing import Union
+
+import soundfile as sf
 
 
 def validate_audio_file(

@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict
 
 import joblib
 import numpy as np
@@ -123,10 +123,10 @@ class XGBoostTrainer:
         """
         if self._model is None:
             raise RuntimeError("No model loaded to evaluate.")
-            
+
         y_pred = self._model.predict(X)
         metrics = self._calculate_metrics(y, y_pred)
-        
+
         # Log diagnostics based on the prediction
         feature_names = (
             list(self.training_config.feature_columns)
@@ -134,8 +134,8 @@ class XGBoostTrainer:
             else None
         )
         log_diagnostics(
-            X_train=X, # Note: using test data as 'train' for stats if only evaluating
-            X_test=X, 
+            X_train=X,  # Note: using test data as 'train' for stats if only evaluating
+            X_test=X,
             y_train=y,
             y_test=y,
             y_pred=y_pred,
@@ -147,14 +147,14 @@ class XGBoostTrainer:
     def train(self, X: np.ndarray, y: np.ndarray) -> TrainingResult:
         """
         Train the model with full pipeline.
-        
+
         Args:
             X: Feature matrix
             y: Target values (e.g., WER)
-            
+
         Returns:
             TrainingResult with model path and metrics
-            
+
         Raises:
             ValueError: If data insufficient or model performance below threshold
         """

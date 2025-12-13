@@ -1,6 +1,5 @@
-"""Utility functions for logging setup."""
-
 import logging
+import sys
 
 
 def setup_logging(level: int = logging.INFO) -> None:
@@ -11,5 +10,7 @@ def setup_logging(level: int = logging.INFO) -> None:
         level: Logging level (default: INFO)
     """
     logging.basicConfig(
-        level=level, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        level=level,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        handlers=[logging.StreamHandler(sys.stderr)],
     )

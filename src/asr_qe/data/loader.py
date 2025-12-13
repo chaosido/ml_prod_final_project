@@ -56,7 +56,7 @@ def prepare_data(
     missing_cols = set(feature_cols) - set(df.columns)
     if missing_cols:
         raise ValueError(
-            f"Missing feature columns: {missing_cols}. Available columns: {list(df.columns)}"
+            f"Missing feature columns: {missing_cols}. Available columns: {list(df.columns)}"  # noqa: E501
         )
 
     if target_column not in df.columns:

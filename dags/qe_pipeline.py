@@ -49,7 +49,8 @@ with DAG(
     description="Cumulative Retraining Pipeline for ASR QE",
     # Run every 30 seconds to check for new files
     # The sensor will check if 50+ files exist, and only proceed if threshold is met
-    schedule_interval=timedelta(seconds=30),  # Every 30 seconds
+    # Run daily in production (or manually triggered)
+    schedule_interval="@daily",
     start_date=days_ago(1),
     catchup=False,
     max_active_runs=1,  # Prevent overlapping runs
@@ -98,10 +99,14 @@ with DAG(
 
     # TASK 2: Ingest (Spark)
     # Uses Hydra args (key=value) for feature_extract.py
+    # Note: Spark workers have asr_qe installed in their venv at /app/.venv/lib/python3.11/site-packages
+    # The driver runs in Airflow container, workers run in Spark containers
+    # IMPORTANT: SparkSubmitOperator constructs --master from conn_id's host:port (without spark:// protocol)
+    # So we set the master URL explicitly in feature_extract.py SparkSession to override this
     ingest_features = SparkSubmitOperator(
         task_id="ingest_data",
         application="/opt/airflow/jobs/feature_extract.py",
-        conn_id="spark_default",
+        conn_id="spark_default",  # Used for connection info, but master URL is set in Python code
         # Pass keys to override defaults in config.yaml
         application_args=[
             f"data.input_path={INCOMING_DATA}",

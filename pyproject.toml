@@ -26,6 +26,9 @@ dependencies = [
     # "cuda-python>=12.3",
     "prometheus-fastapi-instrumentator>=7.1.0",
     "prometheus-client>=0.23.1",
+    "fastapi",
+    "uvicorn",
+    "python-multipart",
 ]
 
 [project.optional-dependencies]
@@ -35,17 +38,17 @@ research = [
 ]
 dev = [
     "pytest",
+    "pytest-mock",
     "ruff",
     "mypy",
     "black",
+    "apache-airflow==2.9.1",
+    "apache-airflow-providers-apache-spark",
 ]
 spark = [
     "pyspark==3.5.0",
 ]
 api = [
-    "fastapi",
-    "uvicorn",
-    "python-multipart",
     "torch",
     "nemo_toolkit[asr]",
 ]
@@ -56,6 +59,8 @@ where = ["src"]
 [tool.ruff]
 line-length = 88
 target-version = "py310"
+
+[tool.ruff.lint]
 select = ["E", "F", "I"]
 ignore = []
 
@@ -71,5 +76,4 @@ markers = [
 [dependency-groups]
 dev = [
     "httpx>=0.28.1",
-    "pytest-mock>=3.15.1",
 ]

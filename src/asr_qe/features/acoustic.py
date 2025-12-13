@@ -1,19 +1,11 @@
-import numpy as np
-import librosa
-from typing import Dict
-from asr_qe.features.interface import FeatureExtractor
 from dataclasses import dataclass
+from typing import Dict
 
+import librosa
+import numpy as np
 
-@dataclass
-class AcousticConfig:
-    """Configuration for acoustic feature extraction."""
-
-    frame_length: int = 2048
-    hop_length: int = 512
-    noise_ratio: float = 0.1
-    epsilon: float = 1e-9
-    silence_db: float = -100.0
+from asr_qe.config import AcousticConfig
+from asr_qe.features.interface import FeatureExtractor
 
 
 class AcousticFeatureExtractor(FeatureExtractor):

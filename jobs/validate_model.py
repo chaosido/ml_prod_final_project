@@ -1,19 +1,17 @@
 import logging
 import sys
-import joblib
-import hydra
-from omegaconf import DictConfig
 from pathlib import Path
-from scipy.stats import spearmanr
-from sklearn.model_selection import train_test_split
+
+import hydra
+import joblib
+
+from asr_qe.config import Config, register_configs
 
 # Import shared modules
 # Import shared modules
 from asr_qe.data import load_features, prepare_data
-from asr_qe.config import Config, register_configs
-from asr_qe.utils import setup_logging
 from asr_qe.models import XGBoostTrainer
-
+from asr_qe.utils import setup_logging
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -21,7 +19,14 @@ logger = logging.getLogger(__name__)
 # Register structured configs
 register_configs()
 
-@hydra.main(version_base=None, config_path="../conf", config_name="config")
+
+# Determine config path: use Docker path if it exists, otherwise use local path
+DOCKER_CONFIG_PATH = Path("/opt/airflow/conf")
+LOCAL_CONFIG_PATH = Path(__file__).parent.parent / "conf"
+CONFIG_PATH = str(DOCKER_CONFIG_PATH if DOCKER_CONFIG_PATH.exists() else LOCAL_CONFIG_PATH)
+
+
+@hydra.main(version_base=None, config_path=CONFIG_PATH, config_name="config")
 def main(cfg: Config) -> None:
     # Build config object
     val_config = cfg.validation
@@ -33,30 +38,30 @@ def main(cfg: Config) -> None:
     if not candidate_path.exists():
         logger.error(f"Candidate model not found at {candidate_path}")
         sys.exit(1)
-        
+
     logger.info(f"Selected Candidate Model: {candidate_path}")
 
     # 2. Prepare Data
     logger.info(f"Loading data from {val_config.data_path}")
     df = load_features(val_config.data_path)
-    
+
     # Initialize Trainer to reuse logic use (split, eval)
     trainer = XGBoostTrainer(
         training_config=cfg.training,
         xgboost_config=cfg.training.xgboost,
-        output_dir=cfg.model.output_dir # Required by new signature
+        output_dir=cfg.model.output_dir,  # Required by new signature
     )
-    
+
     X, y = prepare_data(
-        df, 
-        feature_columns=cfg.training.feature_columns, 
+        df,
+        feature_columns=cfg.training.feature_columns,
         target_column=cfg.training.target_column,
     )
-    
+
     # Use EXACT same split as training
     _, X_test, _, y_test = trainer.split_data(X, y)
     logger.info(f"Test set size: {len(X_test)}")
-    
+
     # 3. Evaluate Candidate
     logger.info("Evaluating Candidate...")
     trainer.set_model(joblib.load(candidate_path))
@@ -67,7 +72,7 @@ def main(cfg: Config) -> None:
     # 4. Evaluate Production (if it exists)
     prod_rho = -1.0
     prod_path = Path(val_config.production_model)
-    
+
     if prod_path.exists():
         logger.info(f"Evaluating Production Model: {prod_path}")
         try:
@@ -79,18 +84,23 @@ def main(cfg: Config) -> None:
             logger.error(f"Failed to load/eval production model: {e}")
             # Keep prod_rho as -1.0
     else:
-        logger.warning(f"Production model not found at {prod_path}. Treating baseline as 0.")
+        logger.warning(
+            f"Production model not found at {prod_path}. Treating baseline as 0."
+        )
 
     # 5. Compare and Exit
     logger.info("-" * 30)
-    logger.info(f"Comparison: Candidate ({cand_rho:.4f}) vs Production ({prod_rho:.4f})")
-    
+    logger.info(
+        f"Comparison: Candidate ({cand_rho:.4f}) vs Production ({prod_rho:.4f})"
+    )
+
     if cand_rho > prod_rho:
         logger.info(">>> RESULT: PASS. Candidate is better.")
         sys.exit(0)
     else:
         logger.info(">>> RESULT: FAIL. Candidate is not better.")
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

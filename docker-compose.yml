@@ -15,6 +15,17 @@ services:
     networks:
       - asr-network
 
+  # Init container to fix volume permissions (standard pattern for bind mounts)
+  init-permissions:
+    image: busybox
+    # Create directories and set permissions so all containers (uid 50000, 1000, etc) can read/write
+    command: sh -c "mkdir -p /opt/data/incoming /opt/data/features /opt/data/archive /models/production /models/staging && chmod -R 777 /opt/data /models"
+    volumes:
+      - ./data:/opt/data
+      - ./models:/models
+    networks:
+      - asr-network
+
   prometheus:
     image: prom/prometheus:v2.45.0
     container_name: asr-prometheus
@@ -81,10 +92,13 @@ services:
     environment:
       - SPARK_WORKER_CORES=1
       - SPARK_WORKER_MEMORY=1G
+      - PYSPARK_PYTHON=/app/.venv/bin/python
+      - PYSPARK_DRIVER_PYTHON=/app/.venv/bin/python
     depends_on:
       - spark-master
     volumes:
       - ./data:/opt/data
+      - ./src:/app/src:ro # Mount source code so workers can access it
     networks:
       - asr-network
 
@@ -116,7 +130,7 @@ services:
     networks:
       - asr-network
     command: >
-      bash -c "airflow db migrate && airflow users create --username admin --password admin --firstname Jesse --lastname Wonnink --role Admin --email admin@example.com"
+      bash -c "airflow db migrate && airflow users create --username admin --password admin --firstname Jesse --lastname Wonnink --role Admin --email admin@example.com && (airflow connections delete spark_default 2>/dev/null || true) && airflow connections add spark_default --conn-type spark --conn-host 'spark://spark-master' --conn-port 7077"
 
   airflow-webserver:
     build:
@@ -181,7 +195,7 @@ services:
           devices:
             - driver: nvidia
               count: 1
-              capabilities: [gpu]
+              capabilities: [ gpu ]
 
 networks:
   asr-network:

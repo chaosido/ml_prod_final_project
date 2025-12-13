@@ -1,7 +1,19 @@
+# Base directories
+paths:
+  data_dir: "/opt/data"  # Docker: /opt/data, Local: data
+  models_dir: "/models"  # Docker: /models, Local: models
+  
+  voxpopuli_dir: "${paths.data_dir}/voxpopuli_nl" 
+  manifest_path: "${paths.voxpopuli_dir}/manifest_train.csv"
+  incoming_dir: "${paths.data_dir}/incoming"
+  archive_dir: "${paths.data_dir}/archive"
+  feature_history: "${paths.data_dir}/features/history.parquet"
+  reference_lookup: "${paths.data_dir}/reference_lookup.json"
+  staging_models: "${paths.models_dir}/staging"
+  production_models: "${paths.models_dir}/production"
 
-# Training configuration
 training:
-  min_samples: 1000
+  min_samples: 500
   min_spearman_rho: 0.4
   test_size: 0.2
   feature_columns:
@@ -11,44 +23,80 @@ training:
     - asr_confidence
   target_column: wer
   
-  # XGBoost hyperparameters
   xgboost:
     n_estimators: 100
     max_depth: 6
     learning_rate: 0.1
     random_state: 42
 
-# Data paths
+# Data paths for feature extraction and training
 data:
-  input_path: "/opt/data/features.parquet"
-  output_path: "/opt/data/processed"
+  input_path: "${paths.feature_history}"
+  output_path: "${paths.feature_history}"
+  reference_lookup_path: "${paths.reference_lookup}"
 
-# Deployment defaults
-deployment:
-  candidate_dir: "models/staging"
-  production_dir: "models/production"
-  output_path: "/opt/data/processed"
-
-# Pipeline Infrastructure (Docker Paths)
+# Pipeline infrastructure paths
 pipeline:
-  incoming_data: "/opt/data/incoming"
-  feature_history: "/opt/data/features/history.parquet"
-  staging_models: "/models/staging"
-  production_models: "/models/production"
+  incoming_data: "${paths.incoming_dir}"
+  feature_history: "${paths.feature_history}"
+  staging_models: "${paths.staging_models}"
+  production_models: "${paths.production_models}"
+  min_files_threshold: 50  # Minimum number of files in incoming/ to trigger pipeline
+  sensor_poke_interval: 60  # Seconds between sensor checks
+  sensor_timeout: 3600  # Sensor timeout in seconds (1 hour)
 
-# Model output
+# Base model output directory
 model:
-  output_dir: "models"
+  output_dir: "${paths.models_dir}"
 
-# Feature extraction (Spark)
+# Model deployment paths
+deployment:
+  candidate_dir: "${paths.staging_models}"
+  production_dir: "${paths.production_models}"
+  candidate_model: "${paths.staging_models}/latest/model.joblib"
+
+# Model validation paths
+validation:
+  candidate_model: "${paths.staging_models}/latest/model.joblib"
+  production_model: "${paths.production_models}/model.joblib"
+  data_path: "${paths.feature_history}"
+
+# Spark configuration
 spark:
   app_name: "ASR-QE-FeatureExtraction"
+  master: "spark://spark-master:7077"
   partitions_multiplier: 3
 
-# Acoustic feature extraction
+# Acoustic feature extraction settings
 acoustic:
   frame_length: 2048
   hop_length: 512
   noise_ratio: 0.1
   epsilon: 1e-9
   silence_db: -100.0
+
+# Dataset download configuration
+download:
+  output_dir: "${paths.voxpopuli_dir}"
+  split: "train"
+  max_samples: null
+
+# Ground truth generation
+ground_truth:
+  manifest_path: "${paths.manifest_path}"
+  output_path: "${paths.data_dir}/ground_truth.parquet"
+  model_name: "nvidia/parakeet-tdt-0.6b-v3"
+  batch_size: 16
+  enable_confidence: true
+
+# Verification data setup
+setup_verification:
+  manifest_path: "${paths.manifest_path}"
+  incoming_dir: "${paths.incoming_dir}"
+  lookup_path: "${paths.reference_lookup}"
+  sample_size: 51  # 51 to ensure it exceeds min_files_threshold (50)
+  random_state: 42
+
+# NeMo model cache configuration
+nemo:
+  cache_dir: "/home/jesse-wonnink/Data/ml_store/models/nemo"  # Centralized cache location (shared across projects)

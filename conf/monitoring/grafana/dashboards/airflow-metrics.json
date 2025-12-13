@@ -1,37 +1,50 @@
 {
-  "dashboard": {
-    "title": "Airflow Metrics",
-    "tags": ["airflow", "mlops"],
-    "timezone": "browser",
-    "schemaVersion": 16,
-    "version": 0,
-    "refresh": "30s",
-    "panels": [
-      {
-        "id": 1,
-        "title": "DAG Run Status",
-        "type": "stat",
-        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
-        "targets": [
-          {
-            "expr": "airflow_dag_run_state{state=\"success\"}",
-            "refId": "A"
-          }
-        ]
+  "title": "Airflow Metrics",
+  "tags": ["airflow", "mlops"],
+  "timezone": "browser",
+  "schemaVersion": 16,
+  "version": 0,
+  "refresh": "30s",
+  "panels": [
+    {
+      "id": 1,
+      "title": "DAG Run Status",
+      "type": "stat",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
       },
-      {
-        "id": 2,
-        "title": "Task Duration",
-        "type": "graph",
-        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
-        "targets": [
-          {
-            "expr": "airflow_task_duration",
-            "refId": "A"
+      "targets": [
+        {
+          "expr": "airflow_dag_run_state{state=\"success\"}",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
           }
-        ]
-      }
-    ]
-  }
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Task Duration",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "airflow_task_duration",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ]
+    }
+  ]
 }
-

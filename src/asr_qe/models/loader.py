@@ -1,10 +1,3 @@
-"""
-Model Loader Module - Singleton Pattern for Model Loading
-
-This module provides a thread-safe singleton pattern for loading XGBoost models.
-The model is loaded once at startup and reused for all predictions.
-"""
-
 import logging
 from functools import lru_cache
 from pathlib import Path
@@ -62,7 +55,6 @@ class ModelLoader:
 @lru_cache(maxsize=1)
 def get_model_loader() -> ModelLoader:
     """
-    Factory function to get the singleton ModelLoader instance.
-    Use this for dependency injection in FastAPI.
+    Factory for dependency injection in the FastAPI.
     """
     return ModelLoader()

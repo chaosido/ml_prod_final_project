@@ -1,5 +1,5 @@
 # Stage 1: Builder
-FROM python:3.12-slim-bookworm AS builder
+FROM python:3.11-slim-bookworm AS builder
 
 # Copy uv binary
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
@@ -14,17 +14,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Install dependencies FIRST (caching layer)
 COPY pyproject.toml uv.lock ./
-# Note: Spark requires pyspark, which is in [spark] extra
+# Note: Spark requires pyspark [spark], and workers need torch/nemo for ASR processing [api]
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --extra spark --locked --no-install-project --no-editable --compile-bytecode
+    uv sync --extra spark --extra api --locked --no-install-project --no-editable --compile-bytecode
 
 # Install the project
 COPY src/ src/
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --extra spark --locked --no-install-project --no-editable --compile-bytecode
+    uv sync --extra spark --extra api --locked --no-editable --compile-bytecode
 
 # Stage 2: Runtime
-FROM python:3.12-slim-bookworm
+FROM python:3.11-slim-bookworm
 
 USER root
 
@@ -39,10 +39,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
 ENV PATH="${JAVA_HOME}/bin:${PATH}"
 
+# Create Spark user with UID 50000 to match Airflow
+# Create user first so we can use it for COPY
+RUN useradd -m -u 50000 spark
+
 WORKDIR /app
 
-# Copy the environment from builder
-COPY --from=builder /app/.venv /app/.venv
+# Copy the environment from builder with correct ownership (fast!)
+COPY --from=builder --chown=spark:spark /app/.venv /app/.venv
 
 # Add venv to PATH (Crucial for Spark to find python)
 ENV PATH="/app/.venv/bin:$PATH"
@@ -50,6 +54,4 @@ ENV PATH="/app/.venv/bin:$PATH"
 ENV PYSPARK_PYTHON=/app/.venv/bin/python
 ENV PYSPARK_DRIVER_PYTHON=/app/.venv/bin/python
 
-# Create Spark user
-RUN useradd -m -u 185 spark
 USER spark
