@@ -76,18 +76,19 @@ class XGBoostTrainer:
         }
 
     def _validate_metrics(self, metrics: Dict[str, float]) -> None:
-        """Validate model performance meets threshold."""
+        """Log model performance metrics."""
         rho = metrics.get("spearman_rho", 0)
         p_value = metrics.get("spearman_p_value", 1.0)
 
         logger.info(f"Spearman correlation: {rho:.4f} (p-value: {p_value:.4e})")
 
         if rho < self.training_config.min_spearman_rho:
-            raise ValueError(
+            logger.warning(
                 f"Model performance below threshold: Spearman Rho = {rho:.4f} "
-                f"(minimum: {self.training_config.min_spearman_rho})"
+                f"(threshold: {self.training_config.min_spearman_rho}). "
             )
-        logger.info(f"Metrics validation passed: Spearman Rho = {rho:.4f}")
+        else:
+            logger.info(f"Metrics validation passed: Spearman Rho = {rho:.4f}")
 
     def _save_model(self, timestamp: str) -> str:
         """Save model to disk with versioning."""

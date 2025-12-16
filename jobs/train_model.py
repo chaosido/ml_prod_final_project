@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 # Register structured configs
 register_configs()
 
-# Determine config path: use Docker path if it exists, otherwise use local path
+# Determine config path: use Docker path if it exists, otherwise use local path, idk how to set it up if not like this for the docker
 DOCKER_CONFIG_PATH = Path("/opt/airflow/conf")
 LOCAL_CONFIG_PATH = Path(__file__).parent.parent / "conf"
 CONFIG_PATH = str(DOCKER_CONFIG_PATH if DOCKER_CONFIG_PATH.exists() else LOCAL_CONFIG_PATH)
@@ -38,7 +38,6 @@ def main(cfg: Config) -> int:
     )
 
     # Train model
-    # cfg.training and cfg.training.xgboost are already typed objects populated by Hydra
     trainer = XGBoostTrainer(
         training_config=cfg.training,
         xgboost_config=cfg.training.xgboost,
@@ -51,7 +50,7 @@ def main(cfg: Config) -> int:
     logger.info(f"  Spearman Rho: {result.spearman_rho:.4f}")
     logger.info(f"  Samples used: {result.num_samples}")
 
-    # Explicitly print the model path to stdout for Airflow XCom to pick up
+    # Explicitly print the model path to stdout for Airflow to see which model (and prevent race conditions)
     print(result.model_path)
 
     return 0

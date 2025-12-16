@@ -17,7 +17,7 @@ def log_diagnostics(
 ) -> None:
     """
     Log diagnostic information about model performance and features, we can use this to know how features did in the model,  # noqa: E501
-    and it automatically gets called in the trainer loop.
+    and it automatically gets called in the trainer loop. 
 
     Args:
         X_train: Training feature matrix

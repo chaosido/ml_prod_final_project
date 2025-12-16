@@ -10,7 +10,7 @@ INCOMING_DIR="data/incoming"
 ARCHIVE_DIR="data/archive"
 NOISE_FILE="data/noise.wav"
 TEXT_FILE="README.md"
-TIMEOUT=5 # Timeout for each curl request
+TIMEOUT=30 # Timeout for each curl request
 
 # Defaults
 NORMAL_REQUESTS=50

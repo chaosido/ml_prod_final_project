@@ -1,8 +1,3 @@
-"""
-Unit tests for the data loader module.
-"""
-
-
 import numpy as np
 import pandas as pd
 import pytest

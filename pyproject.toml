@@ -51,6 +51,7 @@ spark = [
 api = [
     "torch",
     "nemo_toolkit[asr]",
+    "cuda-python>=12.3",
 ]
 
 [tool.setuptools.packages.find]
@@ -76,4 +77,5 @@ markers = [
 [dependency-groups]
 dev = [
     "httpx>=0.28.1",
+    "pytest-cov>=7.0.0",
 ]

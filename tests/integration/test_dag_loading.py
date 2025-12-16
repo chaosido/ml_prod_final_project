@@ -1,10 +1,3 @@
-"""
-Integration test for Airflow DAG loading.
-
-This test verifies that the DAG file can be parsed and loaded without
-ImportErrors or syntax issues. Checks structure, dependencies, and cycles.
-"""
-
 import sys
 from pathlib import Path
 

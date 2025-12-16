@@ -16,7 +16,7 @@ def validate_audio_file(
         min_duration_sec: Minimum audio duration in seconds.
 
     Returns:
-        True if valid, raises appropriate exceptions otherwise.
+        True if valid, raises exception otherwise.
     """
     path = Path(file_path)
 

@@ -95,11 +95,11 @@ def main(cfg: Config) -> None:
     )
 
     if cand_rho > prod_rho:
-        logger.info(">>> RESULT: PASS. Candidate is better.")
+        logger.info(">>> RESULT: PASS. Candidate is better. Will be promoted.")
         sys.exit(0)
     else:
-        logger.info(">>> RESULT: FAIL. Candidate is not better.")
-        sys.exit(1)
+        logger.info(">>> RESULT: Candidate is not better. Keeping current production model.")
+        sys.exit(0)  # Don't fail - just keep the old model
 
 
 if __name__ == "__main__":

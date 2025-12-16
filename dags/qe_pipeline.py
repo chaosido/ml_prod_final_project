@@ -47,7 +47,6 @@ with DAG(
     "asr_qe_pipeline",
     default_args=default_args,
     description="Cumulative Retraining Pipeline for ASR QE",
-    # Run every 30 seconds to check for new files
     # The sensor will check if 50+ files exist, and only proceed if threshold is met
     # Run daily in production (or manually triggered)
     schedule_interval="@daily",
@@ -98,15 +97,12 @@ with DAG(
     )
 
     # TASK 2: Ingest (Spark)
-    # Uses Hydra args (key=value) for feature_extract.py
-    # Note: Spark workers have asr_qe installed in their venv at /app/.venv/lib/python3.11/site-packages
-    # The driver runs in Airflow container, workers run in Spark containers
-    # IMPORTANT: SparkSubmitOperator constructs --master from conn_id's host:port (without spark:// protocol)
-    # So we set the master URL explicitly in feature_extract.py SparkSession to override this
     ingest_features = SparkSubmitOperator(
         task_id="ingest_data",
         application="/opt/airflow/jobs/feature_extract.py",
         conn_id="spark_default",  # Used for connection info, but master URL is set in Python code
+        executor_memory="3g",  # Increased for ASR model
+        driver_memory="2g",
         # Pass keys to override defaults in config.yaml
         application_args=[
             f"data.input_path={INCOMING_DATA}",
@@ -143,14 +139,12 @@ with DAG(
     # Compares staging vs production
     validate_model = BashOperator(
         task_id="validate_model",
-        # Hydra validation config overrides
-        # We use XCom to get the exact path of the model trained in the previous step
         bash_command=f'python /opt/airflow/jobs/validate_model.py validation.candidate_model={{{{ ti.xcom_pull(task_ids="train_model") }}}} validation.production_model={PROD_MODELS}/model.joblib validation.data_path={HISTORY_DATA}',  # noqa: E501
         env={"PYTHONPATH": "/opt/airflow/src"},
     )
 
     # TASK 5: Deploy
-    # Moves the staging folder (or specific model) to production
+    # Moves the staging folder to production
     deploy_model = BashOperator(
         task_id="deploy_model",
         bash_command=f'python /opt/airflow/jobs/deploy_model.py deployment.candidate_model={{{{ ti.xcom_pull(task_ids="train_model") }}}} deployment.production_dir={PROD_MODELS}',  # noqa: E501

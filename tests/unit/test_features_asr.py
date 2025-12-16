@@ -7,7 +7,7 @@ from asr_qe.features.asr import ASRProcessor
 
 @pytest.fixture
 def mock_nemo_model():
-    """Mocks the NeMo ASR Model."""
+    """Mocks the ASR Model."""
     model = Mock()
     return model
 

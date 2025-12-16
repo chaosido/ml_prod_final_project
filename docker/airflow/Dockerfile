@@ -1,4 +1,4 @@
-FROM apache/airflow:2.9.1-python3.11
+FROM apache/airflow:2.9.1-python3.10
 
 USER root
 
@@ -14,7 +14,7 @@ RUN apt-get update \
 ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
 
 USER airflow
-RUN pip install --no-cache-dir "apache-airflow==2.9.1" apache-airflow-providers-apache-spark "pyspark==3.5.0"
+RUN pip install "apache-airflow==2.9.1" apache-airflow-providers-apache-spark "pyspark==3.5.0"
 
 # Copy project files
 COPY --chown=airflow:root pyproject.toml uv.lock /opt/airflow/
@@ -22,7 +22,7 @@ COPY --chown=airflow:root jobs/ /opt/airflow/jobs/
 COPY --chown=airflow:root src/ /opt/airflow/src/
 COPY --chown=airflow:root conf/ /opt/airflow/conf/
 
-RUN pip install --no-cache-dir \
+RUN pip install \
     "numpy<2.0" \
     librosa \
     soundfile \

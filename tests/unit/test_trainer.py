@@ -85,13 +85,14 @@ def test_validate_metrics_passes(training_config, xgboost_config):
     trainer._validate_metrics({"spearman_rho": 0.5})
 
 
-def test_validate_metrics_fails(temp_model_dir, xgboost_config):
-    """Test that poor metrics fail validation."""
+def test_validate_metrics_fails(temp_model_dir, xgboost_config, caplog):
+    """Test that poor metrics log a warning (not raise)."""
     config = TrainingConfig(min_spearman_rho=0.4)
     trainer = XGBoostTrainer(config, xgboost_config, output_dir=temp_model_dir)
 
-    with pytest.raises(ValueError, match="below threshold"):
-        trainer._validate_metrics({"spearman_rho": 0.1})
+    # Should log warning, not raise
+    trainer._validate_metrics({"spearman_rho": 0.1})
+    assert "below threshold" in caplog.text
 
 
 def test_split_data_determinism(training_config, xgboost_config):

@@ -9,11 +9,19 @@ services:
       - "8000:8000"
     volumes:
       - ./models:/models
+      - hf_cache:/root/.cache/huggingface
     environment:
-      - ASR_QE_MODEL_PATH=/models/v20251212_154204/model.joblib
+      - ASR_QE_MODEL_PATH=/models/production/model.joblib
       - LOG_LEVEL=INFO
     networks:
       - asr-network
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
 
   # Init container to fix volume permissions (standard pattern for bind mounts)
   init-permissions:
@@ -91,7 +99,7 @@ services:
       /bin/bash -c " /app/.venv/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077 "
     environment:
       - SPARK_WORKER_CORES=1
-      - SPARK_WORKER_MEMORY=1G
+      - SPARK_WORKER_MEMORY=4G
       - PYSPARK_PYTHON=/app/.venv/bin/python
       - PYSPARK_DRIVER_PYTHON=/app/.venv/bin/python
     depends_on:
@@ -101,6 +109,13 @@ services:
       - ./src:/app/src:ro # Mount source code so workers can access it
     networks:
       - asr-network
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
 
   # AIRFLOW SERVICES
   postgres:
@@ -125,6 +140,8 @@ services:
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
       - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=false
       - AIRFLOW__CORE__LOAD_EXAMPLES=false
+      - AIRFLOW__CORE__FERNET_KEY=YlCImzjge_TeZc7jPJ7Jz2pgOtb4yTssA1pVyqIADWg=
+      - AIRFLOW__WEBSERVER__SECRET_KEY=a]d[9K@f3!mZ2nPq5sVwXyZ
     depends_on:
       - postgres
     networks:
@@ -150,10 +167,13 @@ services:
       - AIRFLOW__CORE__LOAD_EXAMPLES=false
       - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=false
       - AIRFLOW__CONN__SPARK_DEFAULT=spark://spark-master:7077
+      - AIRFLOW__CORE__FERNET_KEY=YlCImzjge_TeZc7jPJ7Jz2pgOtb4yTssA1pVyqIADWg=
+      - AIRFLOW__WEBSERVER__SECRET_KEY=a]d[9K@f3!mZ2nPq5sVwXyZ
     ports:
       - "8081:8080" # Avoid conflict with Spark 8080
     volumes:
       - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
       - ./data:/opt/data
       - ./src:/opt/airflow/src
       - ./models:/models
@@ -180,8 +200,11 @@ services:
       - AIRFLOW__CORE__LOAD_EXAMPLES=false
       - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=false
       - AIRFLOW__CONN__SPARK_DEFAULT=spark://spark-master:7077
+      - AIRFLOW__CORE__FERNET_KEY=YlCImzjge_TeZc7jPJ7Jz2pgOtb4yTssA1pVyqIADWg=
+      - AIRFLOW__WEBSERVER__SECRET_KEY=a]d[9K@f3!mZ2nPq5sVwXyZ
     volumes:
       - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
       - ./data:/opt/data
       - ./src:/opt/airflow/src
       - ./models:/models
@@ -205,3 +228,4 @@ volumes:
   prometheus_data:
   grafana_data:
   postgres_data:
+  hf_cache:

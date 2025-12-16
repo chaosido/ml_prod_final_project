@@ -1,9 +1,11 @@
+
 # Import cuda-python early to avoid NeMo warnings
 # NeMo checks for cuda-python at import time for CUDA graph optimization
+# but not sure this worked 
 try:
     import cuda  # noqa: F401  # cuda-python package imports as 'cuda'
 except ImportError:
-    pass  # Optional dependency, only affects performance
+    pass  
 
 import logging
 import os

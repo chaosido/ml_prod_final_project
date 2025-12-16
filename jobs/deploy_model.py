@@ -43,7 +43,7 @@ def main(cfg: Config) -> None:
     # 3. Deploy (Copy)
     try:
         logger.info(f"Copying to {target_model}...")
-        shutil.copy2(source_model, target_model)
+        shutil.copyfile(source_model, target_model)
         logger.info("Deployment successful!")
 
         # Optional: Archive/Tagging could go here

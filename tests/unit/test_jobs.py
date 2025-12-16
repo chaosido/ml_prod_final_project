@@ -1,14 +1,3 @@
-"""
-Unit tests for jobs/validate_model.py and jobs/deploy_model.py logic.
-
-Follows FIRST principles:
-- Fast: No heavy I/O or model loading
-- Independent: Each test function stands alone
-- Repeatable: Deterministic with tmp_path fixtures
-- Self-validating: Clear assertions
-- Timely: Tests core logic, not implementation details
-"""
-
 import shutil
 
 import pytest
@@ -72,11 +61,10 @@ class TestValidateModelLogic:
         assert result == should_pass, f"Failed: {description}"
 
     def test_spearman_rho_range_validation(self):
-        """Test that valid Spearman rho values are in expected range [-1, 1]."""
+        """some edge value tests"""
         valid_rho = 0.75
 
         assert -1.0 <= valid_rho <= 1.0
 
-        # Our comparison logic should handle edge values
-        assert valid_rho >= -1.0  # Passes against worst possible
-        assert not (valid_rho >= 1.0 + 0.01)  # Would fail against impossible value
+        assert valid_rho >= -1.0
+        assert not (valid_rho >= 1.0 + 0.01)

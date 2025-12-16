@@ -7,9 +7,6 @@ from unittest.mock import Mock, patch
 import numpy as np
 from fastapi.testclient import TestClient
 
-# We need to import the app.
-# Note: This might emit "Instrumentator" warnings or errors if dependencies fail,
-# but getting past import is part of the test.
 from serving.main import app
 
 

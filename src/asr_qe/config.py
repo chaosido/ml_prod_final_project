@@ -3,7 +3,7 @@ from typing import List, Optional
 
 from hydra.core.config_store import ConfigStore
 
-
+# hydra overwrites all configs but these are the constraints/placeholders
 @dataclass
 class AcousticConfig:
     """Configuration for Acoustic Feature Extraction."""
@@ -44,8 +44,6 @@ class TrainingConfig:
 class DataConfig:
     """Data input/output paths.
     
-    Note: These are defaults. In production, paths are typically
-    overridden via Hydra config or command-line arguments.
     """
 
     input_path: str = "/opt/data/features/history.parquet"
@@ -57,8 +55,7 @@ class DataConfig:
 class PipelineConfig:
     """Pipeline infrastructure paths and settings.
     
-    These are the canonical paths used by the production pipeline.
-    All other configs should reference these when possible.
+
     """
 
     incoming_data: str = "/opt/data/incoming"
@@ -84,13 +81,11 @@ class ModelConfig:
 class DeploymentConfig:
     """Configuration for model deployment.
     
-    References pipeline paths for consistency.
     """
 
     candidate_dir: str = "/models/staging"
     production_dir: str = "/models/production"
     candidate_model: str = "/models/staging/latest/model.joblib"
-    # Note: output_path removed - was unused legacy config
 
 
 @dataclass
@@ -117,7 +112,7 @@ class DownloadConfig:
 
     output_dir: str = "/opt/data/voxpopuli_nl"
     split: str = "train"
-    max_samples: int | None = None  # None for all samples
+    max_samples: int | None = None
 
 
 @dataclass
@@ -173,9 +168,6 @@ class Config:
     This structured config provides type-safe access to configuration.
     All values are loaded from config.yaml via Hydra, with defaults
     matching the YAML file.
-    
-    Note: Some sections (like paths) are loaded as unstructured config
-    and accessed via cfg.get() or cfg.paths.*
     """
 
     training: TrainingConfig = field(default_factory=TrainingConfig)

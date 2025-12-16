@@ -13,7 +13,7 @@ paths:
   production_models: "${paths.models_dir}/production"
 
 training:
-  min_samples: 500
+  min_samples: 50  # Low since we're just testing for the project 
   min_spearman_rho: 0.4
   test_size: 0.2
   feature_columns:
@@ -99,4 +99,4 @@ setup_verification:
 
 # NeMo model cache configuration
 nemo:
-  cache_dir: "/home/jesse-wonnink/Data/ml_store/models/nemo"  # Centralized cache location (shared across projects)
+  cache_dir: ${oc.env:NEMO_CACHE_DIR,/tmp/nemo_cache}
